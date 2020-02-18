@@ -1,10 +1,9 @@
 # Deepfake Detection Challenge, Kaggle
 
-## Setup
-```
-pip3 install --user kaggle
-```
+## Accessing data
+The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. See [https://docs.ycrc.yale.edu/]{https://docs.ycrc.yale.edu/} for more info.
 
 ## Model
-Tranformers for classifying as fake or not fake
-Convolutional autoencoder for dimensionality reduction on image frame (a preprocessing step)
+Suggestions from Prof. Krishnaswamy:
+* Tranformers for classifying as fake or not fake
+* Convolutional autoencoder for dimensionality reduction on image frame (a preprocessing step)
