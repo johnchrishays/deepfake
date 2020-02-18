@@ -1,7 +1,7 @@
 # Deepfake Detection Challenge, Kaggle
 
 ## Accessing data
-The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. See [https://docs.ycrc.yale.edu/]{https://docs.ycrc.yale.edu/} for more info.
+The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. See [https://docs.ycrc.yale.edu/](https://docs.ycrc.yale.edu/) for more info.
 
 ## Model
 Suggestions from Prof. Krishnaswamy:
