@@ -1,4 +1,4 @@
-#Deepfake Detection Challenge, Kaggle
+# Deepfake Detection Challenge, Kaggle
 
 ## Setup 
 
