@@ -15,8 +15,9 @@ conda install opencv
 
 Every time:
 ```
-source activate deepfake
+./init
 ```
+in `deepfake`.
 
 ## Accessing data
 The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. See [https://docs.ycrc.yale.edu/](https://docs.ycrc.yale.edu/) for more info.
