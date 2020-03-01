@@ -23,8 +23,8 @@ The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. 
 
 ## Model
 Suggestions from Prof. Krishnaswamy:
-* Convolutional autoencoder for dimensionality reduction on image frame. See seminal paper [Attention is all you need](https://arxiv.org/pdf/1706.03762.pdf) for an overview.
-* Tranformers for classifying as fake or not fake
+* Convolutional autoencoder for dimensionality reduction on image frame. 
+* Tranformers for classifying as fake or not fake. See seminal paper [Attention is all you need](https://arxiv.org/pdf/1706.03762.pdf) for an overview.
 
 
 
