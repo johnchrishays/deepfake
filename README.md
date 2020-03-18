@@ -1,5 +1,24 @@
 # Deepfake Detection Challenge, Kaggle
 
+## Setup 
+
+The first time:
+```
+module load miniconda
+conda create -n deepfake python=3.7 pytorch
+```
+
+To install a new package:
+```
+conda install opencv
+```
+
+Every time:
+```
+./init
+```
+in `deepfake`.
+
 ## Accessing data
 The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. See [https://docs.ycrc.yale.edu/](https://docs.ycrc.yale.edu/) for more info.
 
