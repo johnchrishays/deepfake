@@ -1,0 +1,5 @@
+train
+*.png
+*.zip
+*.pt
+__pycache__

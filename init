@@ -1,0 +1,5 @@
+#!/bin/bash 
+
+module restore deepfake 
+source activate deepfake 
+srun --pty -p interactive bash 
