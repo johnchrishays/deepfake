@@ -1,5 +1,3 @@
-#!/bin/bash 
+#!/bin/sh
 
-module restore deepfake 
-source activate deepfake 
-srun --pty -p interactive bash 
+srun --pty -p interactive -- bash --init-file .srun_init

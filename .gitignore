@@ -4,3 +4,7 @@ test
 *.zip
 *.pt
 __pycache__
+*.log
+.ipynb_checkpoints
+.conda_envs
+core.*
