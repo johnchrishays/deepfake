@@ -1,31 +1,33 @@
 import torch.nn as nn
 
 # TODO: possibly look into multiple filter sizes
+N_IN_CHANNELS = 3
+
 class Autoencoder(nn.Module):
-    def __init__(self):
+    def __init__(self, n_out_channels1=16, n_out_channels2=16, n_out_channels3=16, kernel_size=5):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 16, 5, padding=2),
+            nn.Conv2d(N_IN_CHANNELS, n_out_channels1, kernel_size, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(2),
 
-            nn.Conv2d(16, 16, 5, padding=2),
+            nn.Conv2d(n_out_channels1, n_out_channels2, kernel_size, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(2),
 
-            nn.Conv2d(16, 8, 5, padding=2),
+            nn.Conv2d(n_out_channels2, n_out_channels3, kernel_size, padding=2),
             nn.ReLU(),
         )
         self.decoder = nn.Sequential(
-            nn.Conv2d(8, 16, 5, padding=2),
+            nn.Conv2d(n_out_channels3, n_out_channels2, kernel_size, padding=2),
             nn.ReLU(),
             nn.Upsample(scale_factor=2),
 
-            nn.Conv2d(16, 16, 5, padding=2),
+            nn.Conv2d(n_out_channels2, n_out_channels1, kernel_size, padding=2),
             nn.ReLU(),
             nn.Upsample(scale_factor=2),
 
-            nn.Conv2d(16, 3, 5, padding=2),
+            nn.Conv2d(n_out_channels1, N_IN_CHANNELS, kernel_size, padding=2),
             nn.ReLU(),
         )
 
