@@ -1,0 +1,4 @@
+#!/bin/sh
+
+module load miniconda
+CONDA_ENVS_PATH=.conda_envs source activate deepfake 
