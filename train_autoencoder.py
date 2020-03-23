@@ -12,11 +12,11 @@ train_folders = [
     f'train/dfdc_train_part_{random.randint(0,49)}',
 ]
 
-def train_autoencoder():
+def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5):
     train_dataset = DeepfakeDataset(train_folders, n_frames=1) # only load the first frame of every video
 
     # model = Autoencoder().cuda()
-    model = Autoencoder()
+    model = Autoencoder(n_out_channels1=n_out_channels1, n_out_channels2=n_out_channels2, n_out_channels3=n_out_channels3, kernel_size=kernel_size)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters())
     num_epochs = 5
@@ -36,9 +36,11 @@ def train_autoencoder():
             loss.backward()
             optimizer.step()
         epoch_end_time = datetime.datetime.now()
-        print(f'epoch: {epoch}, loss: {loss}, executed in: {str(epoch_end_time - epoch_start_time)}')
+        exec_time = str(epoch_end_time - epoch_start_time)
+        print(f'epoch: {epoch}, loss: {loss}, executed in: {exec_time}')
     now = datetime.datetime.now()
     torch.save(model.state_dict(), f'autoencoder_{now.strftime("H%HM%MS%S_%m-%d-%y")}.pt')
+    return (loss, exec_time)
 
 if __name__ == "__main__":
     start_time = datetime.datetime.now()

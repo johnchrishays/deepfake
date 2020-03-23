@@ -4,7 +4,7 @@ import torch.nn as nn
 N_IN_CHANNELS = 3
 
 class Autoencoder(nn.Module):
-    def __init__(self, n_out_channels1=16, n_out_channels2=16, n_out_channels3=16, kernel_size=5):
+    def __init__(self, n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(N_IN_CHANNELS, n_out_channels1, kernel_size, padding=2),

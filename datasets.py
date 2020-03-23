@@ -4,6 +4,7 @@ import json
 import numpy as np
 import os.path
 import torch
+import glob
 
 class CapIter:
     def __init__(self, cap, n_frames):
@@ -21,14 +22,18 @@ class CapIter:
             raise StopIteration
 
 class DeepfakeDataset(torch.utils.data.Dataset):
-    def __init__(self, folders, n_frames=float("inf")):
+    def __init__(self, folders, n_frames=float("inf"), train=True):
         self.n_frames = n_frames
         self.videos = []
+        self.train = train
         for folder in folders:
-            with open(os.path.join(folder, 'metadata.json')) as f:
-                videos = json.load(f)
-                videos = [(os.path.join(folder, video), metadata) for (video, metadata) in videos.items()]
-                self.videos += videos
+            if (train):
+                with open(os.path.join(folder, 'metadata.json')) as f:
+                    videos = json.load(f)
+                    videos = [(os.path.join(folder, video), metadata) for (video, metadata) in videos.items()]
+                    self.videos += videos
+            else:
+                self.videos = glob.glob(folder+"/*")
     def __process_frame(self, frame):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = torch.tensor(frame)
@@ -36,11 +41,17 @@ class DeepfakeDataset(torch.utils.data.Dataset):
         frame = frame / 255.
         return frame
     def __getitem__(self, n):
-        (video, metadata) = self.videos[n]
+        if (self.train):
+            (video, metadata) = self.videos[n]
+        else:
+            video = self.videos[n]
         cap = cv2.VideoCapture(video)
         it = CapIter(cap, self.n_frames)
         frames = list(map(self.__process_frame, it))
         cap.release()
-        return (torch.stack(frames), metadata['label'])
+        if (self.train):
+            return (torch.stack(frames), metadata['label'])
+        else:
+            return torch.stack(frames)
     def __len__(self):
         return len(self.videos)
