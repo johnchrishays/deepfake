@@ -19,16 +19,6 @@ Every time:
 ```
 in `deepfake`.
 
-For jupyter notebooks:
-```
-./jupinit
-```
-then copy the line
-```
-MacOS or linux terminal command to create your ssh tunnel
-ssh -N -L {port}:{node}:{port} {un}@farnam.hpc.yale.edu
-```
-
 ## Accessing data
 The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. See [https://docs.ycrc.yale.edu/](https://docs.ycrc.yale.edu/) for more info.
 
