@@ -8,3 +8,5 @@ __pycache__
 .ipynb_checkpoints
 .conda_envs
 core.*
+figs
+*.out
