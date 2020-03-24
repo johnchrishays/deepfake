@@ -12,13 +12,15 @@ train_folders = [
     f'train/dfdc_train_part_{random.randint(0,49)}',
 ]
 
-def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5, epoch_size=10):
+def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5, epoch_size=100):
     start_time = datetime.datetime.now()
     print(f"train_encoder start time: {str(start_time)}")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
+    print('Using device:', device)
     train_dataset = DeepfakeDataset(train_folders, n_frames=1) # only load the first frame of every video
 
-    # model = Autoencoder().cuda()
     model = Autoencoder(n_out_channels1=n_out_channels1, n_out_channels2=n_out_channels2, n_out_channels3=n_out_channels3, kernel_size=kernel_size)
+    model = model.to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters())
     num_epochs = 5
@@ -31,6 +33,7 @@ def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8,
             if i * batch_size >= epoch_size: # only train epoch_size videos per epoch
                 break
             data, _ = batch
+            data = data.to(device)
             data = data.reshape(data.shape[0] * data.shape[1], data.shape[2], data.shape[3], data.shape[4])
             optimizer.zero_grad()
             output = model(data)
@@ -44,6 +47,11 @@ def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8,
     torch.save(model.state_dict(), f'autoencoder_{end_time.strftime("H%HM%MS%S_%m-%d-%y")}.pt')
     exec_time = end_time - start_time
     print(f"train_encoder executed in: {str(exec_time)}, end time: {str(end_time)}")
+    if device.type == 'cuda':
+        print(torch.cuda.get_device_name(0))
+        print('Memory Usage:')
+        print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
+        print('Cached:   ', round(torch.cuda.memory_cached(0)/1024**3,1), 'GB')
     return (loss.item(), exec_time)
 
 if __name__ == "__main__":

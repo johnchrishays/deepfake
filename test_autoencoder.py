@@ -15,6 +15,8 @@ from datasets import DeepfakeDataset
 def test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5):
     start_time = datetime.datetime.now()
     print(f"test_encoder start time: {str(start_time)}")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print('Using device:', device)
     with torch.no_grad():
         test_folder = [
             'test/test_videos',
@@ -22,6 +24,7 @@ def test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, 
         test_dataset = DeepfakeDataset(test_folder, n_frames=1, train=False)
 
         model = Autoencoder(n_out_channels1=n_out_channels1, n_out_channels2=n_out_channels2, n_out_channels3=n_out_channels3, kernel_size=kernel_size)
+        model = model.to(device)
         criterion = nn.MSELoss()
 
         latest_ae = max(glob.glob('./*.pt'), key=os.path.getctime)
@@ -34,12 +37,18 @@ def test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, 
         loss = 0
         for ind in sample:
             data = test_dataset[ind]
+            data = data.to(device)
             out = model(data)
             loss += criterion(out, data).item()
         hidden = model.encode(data)
     end_time = datetime.datetime.now()
     exec_time = end_time - start_time
     print(f"executed in: {str(exec_time)}, finished {str(end_time)}")
+    if device.type == 'cuda':
+        print(torch.cuda.get_device_name(0))
+        print('Memory Usage:')
+        print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
+        print('Cached:   ', round(torch.cuda.memory_cached(0)/1024**3,1), 'GB')
     return (loss / 40, exec_time, np.prod(list(hidden.size())))
         
 if (__name__ == "__main__"):
