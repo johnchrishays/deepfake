@@ -12,7 +12,9 @@ train_folders = [
     f'train/dfdc_train_part_{random.randint(0,49)}',
 ]
 
-def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5):
+def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5, epoch_size=10):
+    start_time = datetime.datetime.now()
+    print(f"train_encoder start time: {str(start_time)}")
     train_dataset = DeepfakeDataset(train_folders, n_frames=1) # only load the first frame of every video
 
     # model = Autoencoder().cuda()
@@ -26,7 +28,7 @@ def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8,
     for epoch in range(num_epochs):
         epoch_start_time = datetime.datetime.now()
         for i, batch in enumerate(dataloader):
-            if i * batch_size >= 10: # only train 100 videos per epoch
+            if i * batch_size >= epoch_size: # only train epoch_size videos per epoch
                 break
             data, _ = batch
             data = data.reshape(data.shape[0] * data.shape[1], data.shape[2], data.shape[3], data.shape[4])
@@ -36,15 +38,13 @@ def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8,
             loss.backward()
             optimizer.step()
         epoch_end_time = datetime.datetime.now()
-        exec_time = str(epoch_end_time - epoch_start_time)
-        print(f'epoch: {epoch}, loss: {loss}, executed in: {exec_time}')
-    now = datetime.datetime.now()
-    torch.save(model.state_dict(), f'autoencoder_{now.strftime("H%HM%MS%S_%m-%d-%y")}.pt')
-    return (loss, exec_time)
+        exec_time = epoch_end_time - epoch_start_time
+        print(f'epoch: {epoch}, loss: {loss}, executed in: {str(exec_time)}')
+    end_time = datetime.datetime.now()
+    torch.save(model.state_dict(), f'autoencoder_{end_time.strftime("H%HM%MS%S_%m-%d-%y")}.pt')
+    exec_time = end_time - start_time
+    print(f"train_encoder executed in: {str(exec_time)}, end time: {str(end_time)}")
+    return (loss.item(), exec_time)
 
 if __name__ == "__main__":
-    start_time = datetime.datetime.now()
-    print(f"train_encoder start time: {str(start_time)}")
     train_autoencoder()
-    end_time = datetime.datetime.now()
-    print(f"executed in: {str(end_time - start_time)}, finished {str(end_time)}")

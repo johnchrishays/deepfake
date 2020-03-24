@@ -12,36 +12,39 @@ import numpy as np
 from models import Autoencoder
 from datasets import DeepfakeDataset
 
-def test_autoencoder():
+def test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5):
+    start_time = datetime.datetime.now()
+    print(f"test_encoder start time: {str(start_time)}")
     with torch.no_grad():
         test_folder = [
             'test/test_videos',
         ]
         test_dataset = DeepfakeDataset(test_folder, n_frames=1, train=False)
 
-        model = Autoencoder()
+        model = Autoencoder(n_out_channels1=n_out_channels1, n_out_channels2=n_out_channels2, n_out_channels3=n_out_channels3, kernel_size=kernel_size)
         criterion = nn.MSELoss()
 
         latest_ae = max(glob.glob('./*.pt'), key=os.path.getctime)
         model.load_state_dict(torch.load(latest_ae))
 
         num_vids = len(glob.glob(test_folder[0]+"/*"))
-        sample = np.random.choice(a=num_vids, size=40, replace=False)
+        sample_size = 40
+        sample = range(40) # np.random.choice(a=num_vids, size=sample_size, replace=False)
         
         loss = 0
         for ind in sample:
             data = test_dataset[ind]
             out = model(data)
             loss += criterion(out, data).item()
-
-    return loss / num_vids
-        
-if __name__ == "__main__":
-    start_time = datetime.datetime.now()
-    print(f"train_encoder start time: {str(start_time)}")
-    print(test_autoencoder())
+        hidden = model.encode(data)
     end_time = datetime.datetime.now()
-    print(f"executed in: {str(end_time - start_time)}, finished {str(end_time)}")
+    exec_time = end_time - start_time
+    print(f"executed in: {str(exec_time)}, finished {str(end_time)}")
+    return (loss / 40, exec_time, np.prod(list(hidden.size())))
+        
+if (__name__ == "__main__"):
+    print(test_autoencoder())
+    
 
 # with torch.no_grad():
 #     train_folders = [
