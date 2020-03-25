@@ -12,12 +12,12 @@ train_folders = [
     f'train/dfdc_train_part_{random.randint(0,49)}',
 ]
 
-def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5, epoch_size=100):
+def train_autoencoder(n_out_channels1=10, n_out_channels2=10, n_out_channels3=6, kernel_size=5, epoch_size=100):
     start_time = datetime.datetime.now()
     print(f"train_encoder start time: {str(start_time)}")
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     print('Using device:', device)
-    train_dataset = DeepfakeDataset(train_folders, n_frames=1) # only load the first frame of every video
+    train_dataset = DeepfakeDataset(train_folders, n_frames=1, device=device) # only load the first frame of every video
 
     model = Autoencoder(n_out_channels1=n_out_channels1, n_out_channels2=n_out_channels2, n_out_channels3=n_out_channels3, kernel_size=kernel_size)
     model = model.to(device)
@@ -30,7 +30,7 @@ def train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8,
     for epoch in range(num_epochs):
         epoch_start_time = datetime.datetime.now()
         for i, batch in enumerate(dataloader):
-            if i * batch_size >= epoch_size: # only train epoch_size videos per epoch
+            if i * batch_size >= epoch_size:
                 break
             data, _ = batch
             data = data.to(device)

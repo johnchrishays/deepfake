@@ -15,7 +15,7 @@ from datasets import DeepfakeDataset
 def test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5):
     start_time = datetime.datetime.now()
     print(f"test_encoder start time: {str(start_time)}")
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('Using device:', device)
     with torch.no_grad():
         test_folder = [

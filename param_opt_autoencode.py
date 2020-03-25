@@ -72,10 +72,10 @@ test_errs = list()
 test_times = list()
 
 for epoch in epoch_range:
-    train_err, train_exec_time = train_autoencoder.train_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5, epoch_size=epoch)
+    train_err, train_exec_time = train_autoencoder.train_autoencoder(n_out_channels1=10, n_out_channels2=10, n_out_channels3=6, kernel_size=5, epoch_size=epoch)
     train_errs.append(train_err)
     train_times.append(train_exec_time)
-    test_err, test_exec_time, hidden_dim = test_autoencoder.test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5)
+    test_err, test_exec_time, hidden_dim = test_autoencoder.test_autoencoder(n_out_channels1=10, n_out_channels2=10, n_out_channels3=6, kernel_size=5)
     test_errs.append(test_err)
     test_times.append(test_exec_time)
 
