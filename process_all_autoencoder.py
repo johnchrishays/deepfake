@@ -9,7 +9,7 @@ from models import Autoencoder
 from datasets import DeepfakeDataset
 
 start_time = datetime.datetime.now()
-print(f"test_encoder start time: {str(start_time)}")
+print(f"process_all_autoencoder start time: {str(start_time)}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('Using device:', device)
 
@@ -26,28 +26,36 @@ with torch.no_grad():
         folder_start_time = datetime.datetime.now()
         print(f"{read_folder} start time: {str(folder_start_time)}")
         write_folder = f'train_cae_feature_vectors/dfdc_train_part_{folder_ind}'
-        try: # make the dir if it doesn't already exist
+        if (os.path.exists(write_folder)): # clear dir
+            os.system(f"rm {write_folder}/*")
+        else:
             os.mkdir(write_folder)
-        except FileExistsError:
-            pass
 
-        dataset = DeepfakeDataset(read_folder, n_frames=50, train=True)
+        dataset = DeepfakeDataset(read_folder, n_frames=300, train=True)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 
         num_vids = len(glob.glob(read_folder[0]+"/*"))
 
         for i, batch in enumerate(dataloader):
+            file_start_time = datetime.datetime.now()
             if device.type == 'cuda':
                 torch.cuda.empty_cache()
-            if (i > 2):
-                break
             data, metadata = batch
-            name = re.search(r"train/dfdc_train_part_\d/(.*)\.mp4", metadata["path"][0])
-            name = name.group(1)
+            name = re.search(r"train/dfdc_train_part_\d/(.*)\.mp4", metadata["path"][0]).group(1)
+            name = os.path.join(write_folder, name + ".pt")
             data = data.to(device)
-            hidden = model.encode(data[0])
-            torch.save(hidden, os.path.join(write_folder, name + ".pt"))
-
+            for j in range(30):
+                frames_to_encode = data[0].narrow_copy(0, j*10, 10)
+                new_hidden_frames = model.encode(frames_to_encode)
+                if (os.path.exists(name)):
+                    previous_hidden_frames = torch.load(name)
+                    torch.save(torch.cat((new_hidden_frames, previous_hidden_frames), 0), name)
+                    del previous_hidden_frames
+                else:
+                    torch.save(new_hidden_frames, name)
+                del new_hidden_frames
+            exec_time = datetime.datetime.now() - file_start_time
+            print(f"wrote file {name}, executed in: {exec_time}")
 
         folder_end_time = datetime.datetime.now()
         exec_time = folder_end_time - folder_start_time
