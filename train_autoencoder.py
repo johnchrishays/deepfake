@@ -2,28 +2,31 @@ import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 import random
 import datetime
 
 from models import Autoencoder
 from datasets import DeepfakeDataset
 
+num_folders = 10
+train_folder_inds = np.random.randint(0,49,num_folders)
 train_folders = [
-    f'train/dfdc_train_part_{random.randint(0,49)}',
+    f'train/dfdc_train_part_{train_folder_inds[0]}' for i in range(num_folders)
 ]
 
-def train_autoencoder(n_out_channels1=10, n_out_channels2=10, n_out_channels3=6, kernel_size=5, epoch_size=100):
+def train_autoencoder(epoch_size=100):
     start_time = datetime.datetime.now()
     print(f"train_encoder start time: {str(start_time)}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     print('Using device:', device)
     train_dataset = DeepfakeDataset(train_folders, n_frames=1, device=device) # only load the first frame of every video
 
-    model = Autoencoder(n_out_channels1=n_out_channels1, n_out_channels2=n_out_channels2, n_out_channels3=n_out_channels3, kernel_size=kernel_size)
+    model = Autoencoder()
     model = model.to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters())
-    num_epochs = 5
+    num_epochs = 10
     batch_size = 1
 
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)

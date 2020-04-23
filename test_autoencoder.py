@@ -12,7 +12,7 @@ import numpy as np
 from models import Autoencoder
 from datasets import DeepfakeDataset
 
-def test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, kernel_size=5):
+def test_autoencoder():
     start_time = datetime.datetime.now()
     print(f"test_encoder start time: {str(start_time)}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,7 +23,7 @@ def test_autoencoder(n_out_channels1=16, n_out_channels2=16, n_out_channels3=8, 
         ]
         test_dataset = DeepfakeDataset(test_folder, n_frames=1, train=False)
 
-        model = Autoencoder(n_out_channels1=n_out_channels1, n_out_channels2=n_out_channels2, n_out_channels3=n_out_channels3, kernel_size=kernel_size)
+        model = Autoencoder()
         model = model.to(device)
         criterion = nn.MSELoss()
 
