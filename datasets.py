@@ -17,9 +17,10 @@ class CapIter:
         if self.n_frames != None and self.i == self.n_frames:
             raise StopIteration
         ok, frame = self.cap.read()
-        if ok:
-            self.i += 1
-            return frame
+        if not ok:
+            raise StopIteration
+        self.i += 1
+        return frame
 
 class DeepfakeDataset(torch.utils.data.Dataset):
     def __init__(self, folders, n_frames=None, train=True, device=None):
@@ -54,8 +55,10 @@ class DeepfakeDataset(torch.utils.data.Dataset):
         frames = list(map(self.__process_frame, it))
         cap.release()
         if (self.train):
-            metadata['path'] = video
-            return (torch.stack(frames), metadata)
+            label = 0.
+            if metadata['label'] == 'FAKE':
+                label = 1.
+            return (torch.stack(frames), torch.FloatTensor([label]).to(self.device))
         else:
             return torch.stack(frames)
     def __len__(self):

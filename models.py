@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 # TODO: possibly look into multiple filter sizes
@@ -39,3 +40,14 @@ class Autoencoder(nn.Module):
     def encode(self, x):
         return self.encoder(x)
 
+class Classifier(nn.Module):
+    def __init__(self, n_features, n_head, n_layers):
+        super(Classifier, self).__init__()
+        encoder_layer = nn.TransformerEncoderLayer(d_model=n_features, nhead=n_head)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
+        self.classifier = nn.Linear(n_features, 1)
+    def forward(self, x):
+        x = self.transformer_encoder(x)
+        x = self.classifier(x[-1]) # classify based on last output of the encoder
+        x = torch.sigmoid(x)
+        return x
