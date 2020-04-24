@@ -6,25 +6,25 @@ import random
 import datetime
 
 from models import Autoencoder,Classifier
-from datasets import DeepfakeDataset
+from datasets import EncodedDeepfakeDataset
 
 VAL_FOLDERS = [
-    f'train/dfdc_train_part_{random.randint(0,49)}',
+    f'train/dfdc_train_part_1',
 ]
 
-AUTOENCODER = 'autoencoder_H00M00S36_03-25-20.pt'
-CLASSIFIER = 'classifier_2020-04-23T00:20:01.482689.pt'
+AUTOENCODER = 'autoencoder_H18M05S37_04-23-20.pt'
+CLASSIFIER = 'classifier_2020-04-23T21:48:05.265500.pt'
 
+test_size = 100
 batch_size = 1
-epoch_size = float("inf")
-n_frames = 30
-n_features = 1000
+n_frames = None
+n_features = 3600
 n_head = 8
 n_layers = 6
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-autoencoder = Autoencoder(n_out_channels1=10, n_out_channels2=10, n_out_channels3=6, kernel_size=5)
+autoencoder = Autoencoder()
 autoencoder.load_state_dict(torch.load(AUTOENCODER))
 autoencoder.to(device)
 autoencoder.eval()
@@ -40,24 +40,15 @@ print(f'using device: {device}')
 count = 0
 count_wrong = 0
 
-val_dataset = DeepfakeDataset(VAL_FOLDERS, n_frames=n_frames, device=device)
+val_dataset = EncodedDeepfakeDataset(VAL_FOLDERS, autoencoder.encoder, n_frames=n_frames, device=device, cache_folder="encode_cache")
 dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 for i, batch in enumerate(dataloader):
-    if i * batch_size >= epoch_size:
-        print(f'here: {i} {batch_size}')
-        print(f'here: {i * batch_size}')
+    if i * batch_size >= test_size:
         break
     data, labels = batch
     data = data.to(device)
-    n_videos = data.shape[0]
-    seq_length = data.shape[1]
     with torch.no_grad():
-        data = data.reshape(n_videos * seq_length, data.shape[2], data.shape[3], data.shape[4])
-        encoding = autoencoder.encoder(data)
-        encoding = encoding.reshape(n_videos, seq_length, -1)
-        encoding = encoding.permute(1, 0, 2) # convert to seq, batch, features
-        encoding = encoding[:,:,:n_features] # XXX
-        output = model(encoding)
+        output = model(data)
         output = output.round()
         n_wrong = (labels - output).abs().sum()
         count_wrong += n_wrong

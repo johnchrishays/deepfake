@@ -57,6 +57,6 @@ class Classifier(nn.Module):
         self.classifier = nn.Linear(n_features, 1)
     def forward(self, x):
         x = self.transformer_encoder(x)
-        x = self.classifier(x[-1]) # classify based on last output of the encoder
+        x = self.classifier(x[:,-1]) # classify based on last output of the encoder
         x = torch.sigmoid(x)
         return x
