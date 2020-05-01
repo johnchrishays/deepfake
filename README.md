@@ -1,7 +1,11 @@
 # Deepfake Detection Challenge, Kaggle
 
 ## TODO
-* Chris: Currently trying to write `process_all_autoencoder` to map each video frame to its encoded representation. Issue: with more than 10 frames, get error like `RuntimeError: CUDA out of memory. Tried to allocate 3.86 GiB (GPU 0; 10.92 GiB total capacity; 5.17 GiB already allocated; 1.52 GiB free; 3.72 GiB cached)`. Need to either figure out how to break videos into chunks (with a small number of frames in each), or get more memory. Seems like the GPUs max out at 16 GB vRAM/GPU.  
+* Potentially lower the framerate on the videos. This can be done with 
+```
+ffmpeg -i <input> -filter:v fps=fps=30 <output>
+```
+* Add transformer for audio and combine it with image seq transformer with a linear layer
 
 ## Setup 
 
