@@ -57,6 +57,33 @@ class Classifier(nn.Module):
         self.classifier = nn.Linear(n_features, 1)
     def forward(self, x):
         x = self.transformer_encoder(x)
+        print(x)
         x = self.classifier(x[:,-1]) # classify based on last output of the encoder
         x = torch.sigmoid(x)
         return x
+
+BATCH_SIZE = 10
+ITERATIONS = 1000
+SEQ_LENGTH = 50 # 441344
+LSTM_SIZE = 64
+
+class LstmAutoencoder(nn.Module):
+    def __init__(self, device):
+        super(LstmAutoencoder, self).__init__()
+        self.device = device
+        self.encoder = nn.LSTM(input_size=1, hidden_size=LSTM_SIZE)
+        self.decoder = nn.LSTM(input_size=1, hidden_size=LSTM_SIZE)
+        self.linear = nn.Linear(LSTM_SIZE, 1)
+        self.softmax = nn.Softmax(dim=2)
+
+    def forward(self, x):
+        _, last_state = self.encoder(x)
+        outs_total = torch.zeros(SEQ_LENGTH, BATCH_SIZE, 1, device=self.device)
+        decoder_input = torch.zeros(1, BATCH_SIZE, 1, device=self.device)
+        for i in range(SEQ_LENGTH):
+            outs, last_state = self.decoder(decoder_input, last_state)
+            outs = self.linear(outs)
+            outs = self.softmax(outs)
+            # outs.squeeze_(2)
+            outs_total[i,...] = outs
+        return outs_total
