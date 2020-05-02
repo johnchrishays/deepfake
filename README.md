@@ -3,8 +3,9 @@
 ## TODO
 * Potentially lower the framerate on the videos. This can be done with 
 ```
-ffmpeg -i <input> -filter:v fps=fps=30 <output>
+ffmpeg -i <input> -filter:v fps=fps=15 <output>
 ```
+Update: run time would be about 13 days, takes too long. Instead, consider having the iterator skip every other frame etc.
 * Add transformer for audio and combine it with image seq transformer with a linear layer
 
 ## Setup 

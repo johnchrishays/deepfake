@@ -10,16 +10,17 @@ from datasets import EncodedDeepfakeDataset
 
 TRAIN_FOLDERS = [
     #f'train/dfdc_train_part_{random.randint(0,49)}',
-    f'train/dfdc_train_part_0',
+    'train/dfdc_train_part_30'
 ]
 
 AUTOENCODER = 'autoencoder_H18M05S37_04-23-20.pt'
 
 batch_size = 10
-num_epochs = 30
+num_epochs = 8
 epoch_size = float("inf")
-n_frames = None
-n_features = 3600
+n_frames = 30
+n_vid_features = 3600
+n_aud_features = 1
 n_head = 8
 n_layers = 6
 
@@ -30,34 +31,36 @@ autoencoder.load_state_dict(torch.load(AUTOENCODER))
 autoencoder.to(device)
 autoencoder.eval()
 
-model = Classifier(n_features, n_head, n_layers)
+model = Classifier(n_vid_features, n_aud_features, n_head, n_layers)
 model = model.to(device)
-criterion = nn.BCELoss()
+criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters())
 
 start_time = datetime.datetime.now()
 print(f'start time: {str(start_time)}')
 print(f'using device: {device}')
 
-train_dataset = EncodedDeepfakeDataset(TRAIN_FOLDERS, autoencoder.encoder, n_frames=n_frames, device=device, cache_folder="encode_cache")
+train_dataset = EncodedDeepfakeDataset(TRAIN_FOLDERS, autoencoder.encoder, n_frames=n_frames, n_audio_reads=576, device=device, cache_folder="encode_cache")
 dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 for epoch in range(num_epochs):
     epoch_start_time = datetime.datetime.now()
+    epoch_loss = 0
     for i, batch in enumerate(dataloader):
         if i * batch_size >= epoch_size:
             break
-        data, labels = batch
-        data = data.to(device)
+        video_data, audio_data, labels = batch
+        video_data = video_data.to(device)
+        audio_data = audio_data.to(device)
         optimizer.zero_grad()
-        output = model(data)
+        output = model(video_data, audio_data)
         loss = criterion(output, labels)
+        epoch_loss += loss.item()
         loss.backward()
         optimizer.step()
         print('.', end='', flush=True)
-    print()
     epoch_end_time = datetime.datetime.now()
     epoch_exec_time = epoch_end_time - epoch_start_time
-    print(f'epoch: {epoch}, loss: {loss}, executed in: {str(epoch_exec_time)}')
+    print(f'\nepoch: {epoch}, loss: {epoch_loss/len(dataloader)}, executed in: {str(epoch_exec_time)}')
 end_time = datetime.datetime.now()
 print(f"end time: {str(end_time)}")
 exec_time = end_time - start_time

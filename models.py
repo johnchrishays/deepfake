@@ -50,40 +50,48 @@ class Autoencoder(nn.Module):
         return self.encoder(x)
 
 class Classifier(nn.Module):
-    def __init__(self, n_features, n_head, n_layers):
+    def __init__(self, n_vid_features, n_aud_features, n_head, n_layers, n_linear_hidden=30, dropout=0.3):
         super(Classifier, self).__init__()
-        encoder_layer = nn.TransformerEncoderLayer(d_model=n_features, nhead=n_head)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
-        self.classifier = nn.Linear(n_features, 1)
-    def forward(self, x):
-        x = self.transformer_encoder(x)
-        print(x)
-        x = self.classifier(x[:,-1]) # classify based on last output of the encoder
-        x = torch.sigmoid(x)
+        vid_encoder_layer = nn.TransformerEncoderLayer(d_model=n_vid_features, nhead=n_head)
+        self.vid_transformer_encoder = nn.TransformerEncoder(vid_encoder_layer, num_layers=n_layers)
+        aud_encoder_layer = nn.TransformerEncoderLayer(d_model=n_aud_features, nhead=1)
+        self.aud_transformer_encoder = nn.TransformerEncoder(aud_encoder_layer, num_layers=n_layers)
+        self.dense = nn.Linear(n_vid_features + n_aud_features, n_linear_hidden)
+        self.dropout = nn.Dropout(p=dropout)
+        self.out_pred = nn.Linear(n_linear_hidden, 1)
+
+    def forward(self, vid, aud):
+        vid = self.vid_transformer_encoder(vid)
+        aud = self.aud_transformer_encoder(aud)
+        x = torch.cat((vid[:,-1], aud[:,-1]), 1) # classify based on last output of the encoder
+        x = self.dropout(x)
+        x = self.dense(x) 
+        x = torch.tanh(x)
+        x = self.dropout(x)
+        x = self.out_pred(x)
         return x
 
-BATCH_SIZE = 10
-ITERATIONS = 1000
-SEQ_LENGTH = 50 # 441344
-LSTM_SIZE = 64
-
 class LstmAutoencoder(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, batch_size, seq_length, lstm_size):
         super(LstmAutoencoder, self).__init__()
         self.device = device
-        self.encoder = nn.LSTM(input_size=1, hidden_size=LSTM_SIZE)
-        self.decoder = nn.LSTM(input_size=1, hidden_size=LSTM_SIZE)
-        self.linear = nn.Linear(LSTM_SIZE, 1)
+        self.batch_size = batch_size
+        self.seq_length = seq_length
+        self.lstm_size = lstm_size
+
+        self.encoder = nn.LSTM(input_size=1, hidden_size=lstm_size, num_layers=2, dropout=0.3)
+        # self.dropout = nn.Dropout(dropout)
+        self.decoder = nn.LSTM(input_size=1, hidden_size=lstm_size, num_layers=2, dropout=0.3)
+        self.linear = nn.Linear(lstm_size, 1)
         self.softmax = nn.Softmax(dim=2)
 
     def forward(self, x):
         _, last_state = self.encoder(x)
-        outs_total = torch.zeros(SEQ_LENGTH, BATCH_SIZE, 1, device=self.device)
-        decoder_input = torch.zeros(1, BATCH_SIZE, 1, device=self.device)
-        for i in range(SEQ_LENGTH):
+        outs_total = torch.zeros(self.seq_length, self.batch_size, 1, device=self.device)
+        decoder_input = torch.zeros(1, self.batch_size, 1, device=self.device)
+        for i in range(self.seq_length):
             outs, last_state = self.decoder(decoder_input, last_state)
             outs = self.linear(outs)
             outs = self.softmax(outs)
-            # outs.squeeze_(2)
             outs_total[i,...] = outs
         return outs_total
