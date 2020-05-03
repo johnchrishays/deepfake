@@ -9,15 +9,15 @@ from models import Autoencoder,Classifier
 from datasets import EncodedDeepfakeDataset
 
 TRAIN_FOLDERS = [
-    #f'train/dfdc_train_part_{random.randint(0,49)}',
-    'train/dfdc_train_part_30'
+    # f'train/dfdc_train_part_30',
+    'train/balanced'
 ]
 
 AUTOENCODER = 'autoencoder_H18M05S37_04-23-20.pt'
 
 batch_size = 10
 num_epochs = 8
-epoch_size = float("inf")
+epoch_size = 200
 n_frames = 30
 n_vid_features = 3600
 n_aud_features = 1
@@ -34,7 +34,7 @@ autoencoder.eval()
 model = Classifier(n_vid_features, n_aud_features, n_head, n_layers)
 model = model.to(device)
 criterion = nn.BCEWithLogitsLoss()
-optimizer = optim.Adam(model.parameters())
+optimizer = optim.SGD(model.parameters(), lr=0.01)
 
 start_time = datetime.datetime.now()
 print(f'start time: {str(start_time)}')

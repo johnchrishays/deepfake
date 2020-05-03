@@ -5,7 +5,10 @@ import numpy as np
 import pandas as pd
 import random
 import os.path
+import time
 import torch
+from torch import nn
+from torch.nn import functional
 import glob
 import datetime
 import subprocess
@@ -71,7 +74,7 @@ class DeepfakeDataset(torch.utils.data.Dataset):
         return len(self.videos)
 
 class EncodedDeepfakeDataset(torch.utils.data.Dataset):
-    def __init__(self, folders, encoder, n_frames=None, n_audio_reads=None, train=True, device=None, cache_folder=None):
+    def __init__(self, folders, encoder, n_frames=None, n_audio_reads=50027, train=True, device=None, cache_folder=None):
         """ n_audio_reads controls the length of the audio sequence: 5000 readings/sec """
         self.n_frames = n_frames
         self.n_audio_reads = n_audio_reads
@@ -91,15 +94,29 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
     def __process_frame(self, frame):
         frame = cv2.UMat(frame)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
-        frame = torch.tensor(cv2.UMat.get(frame))
-        if self.device:
-            frame = frame.to(self.device)
-        frame = frame.permute(2, 0, 1)
-        frame = frame / 255.
-        frame = frame.unsqueeze(0)
-        encoded = self.encoder(frame)[0]
-        encoded = encoded.view(-1)
-        return encoded
+        with torch.no_grad():
+            frame = cv2.UMat.get(frame)
+            frame = torch.tensor(frame, dtype=torch.float32)
+            if self.device:
+                frame = frame.to(self.device)
+            frame = frame.unsqueeze(0)
+            if (frame.size(1) == 1920 and frame.size(2) == 1080):
+                frame = frame.permute(0, 3, 1, 2)
+            elif (frame.size(2) == 1920 and frame.size(1) == 1080):
+                frame = frame.permute(0, 3, 2, 1)
+            elif (frame.size(1) == 1280 and frame.size(2) == 720):
+                frame = frame.permute(0, 3, 1, 2)
+                frame = functional.interpolate(frame, size=(1920, 1080))
+            elif (frame.size(2) == 1280 and frame.size(1) == 720):
+                frame = frame.permute(0, 3, 2, 1)
+                frame = functional.interpolate(frame, size=(1920, 1080))
+            else: # if some other size, will be some stretching etc but w/e
+                frame = frame.permute(0, 3, 2, 1)
+                frame = functional.interpolate(frame, size=(1920, 1080))
+            frame = frame / 255.
+            encoded = self.encoder(frame)[0]
+            encoded = encoded.view(-1)
+            return encoded
     def __getitem__(self, n):
         start_time = datetime.datetime.now()
         if (self.train):
@@ -116,11 +133,17 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
                 encoded = encoded[:self.n_frames]
         if encoded is None:
             with torch.no_grad():
+                if os.path.islink(video):
+                    video = os.readlink(video)
                 cap = cv2.VideoCapture(video)
                 it = CapIter(cap, self.n_frames)
                 frames = list(map(self.__process_frame, it))
                 cap.release()
-                encoded = torch.stack(frames)
+                try:
+                    encoded = torch.stack(frames)
+                except RuntimeError as e:
+                    print(e, video)
+                    raise
             if cache_path:
                 d = os.path.dirname(cache_path)
                 if not os.path.exists(d):
@@ -130,12 +153,17 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
             encoded = encoded.to(self.device)
 
         # audio data
+        if os.path.islink(video):
+            video = os.readlink(video)
         wav_file = video[:-4]+".wav"
-        if not os.path.exists(wav_file): # read wav file if exists
-            command = f"ffmpeg -i {video} -ar 5000 -vn {wav_file} -y -hide_banner -loglevel panic"
-            subprocess.call(command, shell=True)
-        _, audio_data = wavfile.read(video[:-4]+".wav")            
-        audio_data = torch.FloatTensor(audio_data) / 2**14
+        if not os.path.exists(wav_file): # create wav file if doesn't exist
+            command = f"ffmpeg -i {video} -ar 5000 -vn {wav_file} -y -hide_banner"
+            proc = subprocess.call(command, shell=True)
+        if os.path.exists(wav_file):
+            _, audio_data = wavfile.read(video[:-4]+".wav")
+            audio_data = torch.FloatTensor(audio_data) / 2**14
+        else:
+            audio_data = torch.zeros((self.n_audio_reads))
         if self.n_audio_reads and self.n_audio_reads <= audio_data.size(0):
             audio_data = audio_data[:self.n_audio_reads]
         audio_data = audio_data.unsqueeze(1)
@@ -207,6 +235,30 @@ def real_fake_statistics():
         print(f"{folder}: \n\t num_vids: {folder_num_vids} \n\t num_fake: {folder_num_fake} \n\t pct: {folder_num_fake/folder_num_vids:.2f}")
     print(f"total \n\t num_vids: {num_vids} \n\t num_fake: {num_fake} \n\t pct: {folder_num_fake/folder_num_vids:.2f}")
 
+def frame_size_statistics():
+    """ Calculate pct fake videos in the dataset. """
+    TRAIN_FOLDERS = [
+        f'train/dfdc_train_part_{i}' for i in range(13, 50)
+    ]
+    num_videos = 0
+    frame_size_dict = dict()
+    for folder in TRAIN_FOLDERS:
+        print(f"folder {folder}")
+        with open(os.path.join(folder, 'metadata.json')) as f:
+            videos = json.load(f)
+            videos = [(os.path.join(folder, video), metadata) for (video, metadata) in videos.items()]
+            for video, metadata in videos:
+                cap = cv2.VideoCapture(video)
+                dims = (cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                cap.release()
+                if (dims in frame_size_dict):
+                    frame_size_dict[dims] += 1
+                else:
+                    frame_size_dict[dims] = 1
+                num_videos += 1
+        for dim in frame_size_dict.keys():
+            print(f"running tally: frame size {dim}: {frame_size_dict[dim]/num_videos}%")
+
 def extract_audio():
     """ Writes .wav files of audio for each of the videos in TRAIN_FOLDERS at sample rate of 5000Hz. """
     TRAIN_FOLDERS = [
@@ -268,15 +320,11 @@ def lower_framerate():
     exec_time = end_time - start_time
     print(f"executed in: {str(exec_time)}")
 
-def symlink_balanced_dataset():
+def symlink_balanced_dataset(orig_folders, balanced_folder):
     """ Generates new balanced training (~50% real/fake) by simlinking videos to new folder. """
-    TRAIN_FOLDERS = [
-        f'train/dfdc_train_part_{i}' for i in np.random.choice(50, 30, replace=False) 
-    ]
-    BALANCED_TRAIN_FOLDER = 'train/balanced'
-    if os.path.exists(BALANCED_TRAIN_FOLDER):
-        for filename in os.listdir(BALANCED_TRAIN_FOLDER):
-            file_path = os.path.join(BALANCED_TRAIN_FOLDER, filename)
+    if os.path.exists(balanced_folder):
+        for filename in os.listdir(balanced_folder):
+            file_path = os.path.join(balanced_folder, filename)
             try:
                 if os.path.isfile(file_path) or os.path.islink(file_path):
                     os.unlink(file_path)
@@ -285,21 +333,21 @@ def symlink_balanced_dataset():
             except Exception as e:
                 print(f'Failed to delete {file_path}. Reason: {e}')
     else:
-        os.mkdir(BALANCED_TRAIN_FOLDER)
+        os.mkdir(balanced_folder)
     num_real = 0
     num_fake = 0
-    with open('metadata.json', 'w') as metadata_file:
+    with open(os.path.join(balanced_folder,'metadata.json'), 'w') as metadata_file:
         new_metadata_dict = dict()
-        for folder in TRAIN_FOLDERS:
+        for folder in orig_folders:
             print(f"folder: {folder}")
             with open(os.path.join(folder, 'metadata.json')) as f:
                 videos = json.load(f)
                 videos = videos.items()
-                for filename, metadata in videos:
+                for filename, metadata in videos: 
                     p = np.random.uniform()
                     if metadata['label'] == 'FAKE' and p >= .81:
                         src = os.path.join(folder, filename)
-                        dst = os.path.join(BALANCED_TRAIN_FOLDER, filename)
+                        dst = os.path.join(balanced_folder, filename)
                         new_metadata_dict[filename] = metadata
                         try:
                             os.symlink(src, dst)
@@ -308,7 +356,7 @@ def symlink_balanced_dataset():
                         num_fake += 1
                     if metadata['label'] == 'REAL':
                         src = os.path.join(folder, filename)
-                        dst = os.path.join(BALANCED_TRAIN_FOLDER, filename)
+                        dst = os.path.join(balanced_folder, filename)
                         new_metadata_dict[filename] = metadata
                         try:
                             os.symlink(src, dst)
@@ -319,8 +367,32 @@ def symlink_balanced_dataset():
     print(f"Num files: {num_real+num_fake}\nPercent real: {num_real/(num_real+num_fake)}")
 
 if __name__ == "__main__":
-    symlink_balanced_dataset()
-
-    
+    # train_inds = np.random.choice(50, 30, replace=False) 
+    # test_inds = list(set(range(50)).difference(train_inds))
+    # TRAIN_FOLDERS = [
+    #     f'train/dfdc_train_part_{i}' for i in train_inds 
+    # ]
+    # TEST_FOLDERS = [
+    #     f'train/dfdc_train_part_{i}' for i in test_inds 
+    # ]
+    # BALANCED_TRAIN_FOLDER = 'train/balanced'
+    # BALANCED_TEST_FOLDER = 'train/balanced_test'
+    # symlink_balanced_dataset(TRAIN_FOLDERS, BALANCED_TRAIN_FOLDER)
+    # symlink_balanced_dataset(TEST_FOLDERS, BALANCED_TEST_FOLDER)
+    video = "train/dfdc_train_part_26/hycdczdeby.mp4"
+    if os.path.islink(video):
+        video = os.readlink(video)
+    wav_file = video[:-4]+".wav"
+    if not os.path.exists(wav_file): # create wav file if doesn't exist
+        command = f"ffmpeg -i {video} -ar 5000 -vn {wav_file} -y -hide_banner"
+        proc = subprocess.call(command, shell=True)
+    if os.path.exists(wav_file):
+        _, audio_data = wavfile.read(video[:-4]+".wav")
+        audio_data = torch.FloatTensor(audio_data) / 2**14
+        print(audio_data.size())
+    else:
+        audio_data = torch.zeros((50027 if n_audio_reads == None else n_audio_reads))
+        print(audio_data.size())
+        
 
 

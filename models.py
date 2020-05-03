@@ -66,7 +66,7 @@ class Classifier(nn.Module):
         x = torch.cat((vid[:,-1], aud[:,-1]), 1) # classify based on last output of the encoder
         x = self.dropout(x)
         x = self.dense(x) 
-        x = torch.tanh(x)
+        x = torch.sigmoid(x)
         x = self.dropout(x)
         x = self.out_pred(x)
         return x

@@ -1,3 +1,5 @@
+import glob
+import os
 import time
 import torch
 import torch.nn as nn
@@ -9,15 +11,16 @@ from models import Autoencoder,Classifier
 from datasets import EncodedDeepfakeDataset
 
 VAL_FOLDERS = [
-    f'train/dfdc_train_part_1',
+    f'train/balanced_test',
 ]
 
 AUTOENCODER = 'autoencoder_H18M05S37_04-23-20.pt'
-CLASSIFIER = 'classifier_2020-04-23T21:48:05.265500.pt'
+CLASSIFIER = max(glob.glob('./classifier_*.pt'), key=os.path.getctime)
+# CLASSIFIER = 'classifier_2020-04-23T21:48:05.265500.pt'
 
 test_size = 100
 batch_size = 1
-n_frames = None
+n_frames = 30
 n_vid_features = 3600
 n_aud_features = 1
 n_head = 8
@@ -31,6 +34,7 @@ autoencoder.to(device)
 autoencoder.eval()
 
 model = Classifier(n_vid_features, n_aud_features, n_head, n_layers)
+model.load_state_dict(torch.load(CLASSIFIER))
 model = model.to(device)
 model.eval()
 
@@ -40,7 +44,6 @@ print(f'using device: {device}')
 
 count = 0
 count_wrong = 0
-count_real = 0
 
 val_dataset = EncodedDeepfakeDataset(VAL_FOLDERS, autoencoder.encoder, n_frames=n_frames, n_audio_reads=576, device=device, cache_folder="encode_cache")
 dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
@@ -52,11 +55,8 @@ for i, batch in enumerate(dataloader):
     audio_data = audio_data.to(device)
     with torch.no_grad():
         output = model(video_data, audio_data)
-        print(output)
-        output = torch.sigmoid(output)
         output = output.round()
         n_wrong = (labels - output).abs().sum()
-        count_real += (output == 0).sum()
         count_wrong += n_wrong
         count += labels.shape[0]
 
@@ -72,4 +72,3 @@ print(f"total: {count}")
 print(f"correct: {count_right}")
 print(f"incorrect: {count_wrong}")
 print(f"accuracy: {count_right / count}")
-print(f"# of REAL guesses: {count_real}")
