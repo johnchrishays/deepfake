@@ -16,8 +16,8 @@ TRAIN_FOLDERS = [
 AUTOENCODER = 'autoencoder_H18M05S37_04-23-20.pt'
 
 batch_size = 10
-num_epochs = 8
-epoch_size = 200
+num_epochs = 20
+epoch_size = 500
 n_frames = 30
 n_vid_features = 3600
 n_aud_features = 1
@@ -60,7 +60,7 @@ for epoch in range(num_epochs):
         print('.', end='', flush=True)
     epoch_end_time = datetime.datetime.now()
     epoch_exec_time = epoch_end_time - epoch_start_time
-    print(f'\nepoch: {epoch}, loss: {epoch_loss/len(dataloader)}, executed in: {str(epoch_exec_time)}')
+    print(f'\nepoch: {epoch}, loss: {epoch_loss/(epoch_size/batch_size)}, executed in: {str(epoch_exec_time)}')
 end_time = datetime.datetime.now()
 print(f"end time: {str(end_time)}")
 exec_time = end_time - start_time

@@ -137,7 +137,11 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
                     video = os.readlink(video)
                 cap = cv2.VideoCapture(video)
                 it = CapIter(cap, self.n_frames)
-                frames = list(map(self.__process_frame, it))
+                try:
+                    frames = list(map(self.__process_frame, it))
+                except TypeError as e:
+                    print(f"Error with {video}:", e)
+                    raise
                 cap.release()
                 try:
                     encoded = torch.stack(frames)

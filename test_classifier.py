@@ -18,7 +18,7 @@ AUTOENCODER = 'autoencoder_H18M05S37_04-23-20.pt'
 CLASSIFIER = max(glob.glob('./classifier_*.pt'), key=os.path.getctime)
 # CLASSIFIER = 'classifier_2020-04-23T21:48:05.265500.pt'
 
-test_size = 100
+test_size = 500
 batch_size = 1
 n_frames = 30
 n_vid_features = 3600
@@ -55,6 +55,7 @@ for i, batch in enumerate(dataloader):
     audio_data = audio_data.to(device)
     with torch.no_grad():
         output = model(video_data, audio_data)
+        output = torch.sigmoid(output)
         output = output.round()
         n_wrong = (labels - output).abs().sum()
         count_wrong += n_wrong

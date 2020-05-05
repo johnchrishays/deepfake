@@ -1,12 +1,15 @@
 # Deepfake Detection Challenge, Kaggle
 
+## Ideas to make the model learn
+* Right now, the last layer of the model is a linear layer which takes as input 1 audio feature (output of audio transformer) and 3600 video features (output of video transformer). We should try having the video features go through a separate linear layer so that the video features don't drown out the single audio feature.
+* Just consider faces. Just use an out-of-the-box face cropper to get 128x128 face crops to use as input to the transformer. 
+
 ## TODO
 * Potentially lower the framerate on the videos. This can be done with 
 ```
 ffmpeg -i <input> -filter:v fps=fps=15 <output>
 ```
 Update: run time would be about 13 days, takes too long. Instead, consider having the iterator skip every other frame etc.
-* Add transformer for audio and combine it with image seq transformer with a linear layer
 
 ## Setup 
 
