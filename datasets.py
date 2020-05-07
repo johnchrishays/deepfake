@@ -51,7 +51,20 @@ class DeepfakeDataset(torch.utils.data.Dataset):
         frame = torch.tensor(cv2.UMat.get(frame))
         if self.device:
             frame.to(self.device)
-        frame = frame.permute(2, 0, 1)
+        frame = frame.unsqueeze(0)
+        if (frame.size(1) == 1920 and frame.size(2) == 1080):
+            frame = frame.permute(0, 3, 1, 2)
+        elif (frame.size(2) == 1920 and frame.size(1) == 1080):
+            frame = frame.permute(0, 3, 2, 1)
+        elif (frame.size(1) == 1280 and frame.size(2) == 720):
+            frame = frame.permute(0, 3, 1, 2)
+            frame = functional.interpolate(frame, size=(1920, 1080))
+        elif (frame.size(2) == 1280 and frame.size(1) == 720):
+            frame = frame.permute(0, 3, 2, 1)
+            frame = functional.interpolate(frame, size=(1920, 1080))
+        else: # if some other size, will be some stretching etc but w/e
+            frame = frame.permute(0, 3, 2, 1)
+            frame = functional.interpolate(frame, size=(1920, 1080))
         frame = frame / 255.
         return frame
     def __getitem__(self, n):
@@ -115,10 +128,14 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
             else: # if some other size, will be some stretching etc but w/e
                 frame = frame.permute(0, 3, 2, 1)
                 frame = functional.interpolate(frame, size=(1920, 1080))
+            frame = frame.squeeze(0)
             frame = frame / 255.
-            encoded = self.encoder(frame)[0]
-            encoded = encoded.view(-1)
-            return encoded
+            if (self.encoder):
+                encoded = self.encoder(frame)[0]
+                encoded = encoded.view(-1)
+                return encoded
+            else:
+                return frame
     def __getitem__(self, n):
         start_time = datetime.datetime.now()
         if (self.train):
@@ -150,7 +167,7 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
                 except RuntimeError as e:
                     print(e, video)
                     raise
-            if cache_path:
+            if self.encoder and cache_path:
                 d = os.path.dirname(cache_path)
                 if not os.path.exists(d):
                     os.makedirs(d)
@@ -243,8 +260,9 @@ class FaceDeepfakeDataset(torch.utils.data.Dataset):
             try:
                 encoded = torch.stack(list(map(self.__process_frame, it)))
                 encoded = encoded.to(self.device)
-                encoded = self.encoder(encoded)
-                encoded = encoded.view(self.n_frames, -1)
+                if (self.encoder):
+                    encoded = self.encoder(encoded)
+                    encoded = encoded.view(self.n_frames, -1)
             except TypeError as e:
                 print(e)
                 print(video)
@@ -254,7 +272,7 @@ class FaceDeepfakeDataset(torch.utils.data.Dataset):
                 print(video)
                 raise
             cap.release()
-            if cache_path:
+            if self.encoder and cache_path:
                 d = os.path.dirname(cache_path)
                 if not os.path.exists(d):
                     os.makedirs(d)

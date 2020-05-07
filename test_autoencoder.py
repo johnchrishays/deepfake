@@ -10,7 +10,7 @@ import datetime
 import numpy as np
 
 from models import Autoencoder, FaceAutoencoder
-from datasets import DeepfakeDataset, FaceDeepfakeDataset
+from datasets import EncodedDeepfakeDataset, FaceDeepfakeDataset
 
 def test_autoencoder():
     start_time = datetime.datetime.now()
@@ -19,16 +19,16 @@ def test_autoencoder():
     print('Using device:', device)
     with torch.no_grad():
         test_folder = [
-            'test/test_videos',
+            'train/balanced_test',
         ]
-        test_dataset = FaceDeepfakeDataset(test_folder, n_frames=1, train=False)
+        test_dataset = EncodedDeepfakeDataset(test_folder, encoder=None, n_frames=1, train=True)
 
-        model = FaceAutoencoder()
+        model = Autoencoder()
         model = model.to(device)
         criterion = nn.MSELoss()
 
         latest_ae = max(glob.glob('./autoencoder*.pt'), key=os.path.getctime)
-        model.load_state_dict(torch.load(latest_ae))
+        model.load_state_dict(torch.load(latest_ae, map_location=device))
 
         num_vids = len(glob.glob(test_folder[0]+"/*.mp4"))
         sample_size = 400
@@ -36,7 +36,7 @@ def test_autoencoder():
         
         loss = 0
         for ind in sample:
-            data, _ = test_dataset[ind]
+            data, _, _ = test_dataset[ind]
             data = data.to(device)
             out = model(data)
             loss += criterion(out, data).item()

@@ -40,6 +40,7 @@ The training/testing data are in `/gpfs/ysm/project/amth/amth_jch97/deepfake/`. 
 Models: `models.py`
 Training: `train_*.py`
 Testing: `test_*.py`
+Dataset classes: `datasets.py`
 Models: `*.py`
 Dataset: `train/` (50/50 real/fake training set in `train/balanced/` and test in `train/test_balanced`
 Cache of images already processed through CAE: `encode_cache/` or `face_encode_cache/`

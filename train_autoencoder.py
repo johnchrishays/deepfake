@@ -7,7 +7,7 @@ import random
 import datetime
 
 from models import Autoencoder, FaceAutoencoder
-from datasets import DeepfakeDataset, FaceDeepfakeDataset
+from datasets import EncodedDeepfakeDataset, FaceDeepfakeDataset
 
 num_folders = 20
 train_folder_inds = np.random.randint(0,49,num_folders)
@@ -20,14 +20,14 @@ def train_autoencoder(epoch_size=250):
     print(f"train_encoder start time: {str(start_time)}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     print('Using device:', device)
-    train_dataset = FaceDeepfakeDataset(train_folders, n_frames=1, device=device)
+    train_dataset = EncodedDeepfakeDataset(train_folders, encoder=None, n_frames=1, device=device)
 
-    model = FaceAutoencoder()
+    model = Autoencoder()
     model = model.to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters())
     num_epochs = 10
-    batch_size = 10
+    batch_size = 1
 
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     for epoch in range(num_epochs):
@@ -38,7 +38,7 @@ def train_autoencoder(epoch_size=250):
                 break
             data, _, _ = batch
             data = data.to(device)
-            data = data.reshape(data.shape[0] * data.shape[1], data.shape[2], data.shape[3], data.shape[4])
+            data = data.squeeze(0)
             optimizer.zero_grad()
             output = model(data)
             loss = criterion(output, data)

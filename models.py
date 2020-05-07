@@ -39,9 +39,7 @@ class Autoencoder(nn.Module):
 
     def forward(self, x):
         x = self.encoder(x)
-        # print(x.size())
         x = self.decoder(x)
-        # print(x.size())
         return x
 
     def encode(self, x):
@@ -88,10 +86,7 @@ class FaceAutoencoder(nn.Module):
 
     def forward(self, x):
         x = self.encoder(x)
-        print(x.size())
-        # print(x.size())
         x = self.decoder(x)
-        # print(x.size())
         return x
 
     def encode(self, x):
@@ -160,20 +155,16 @@ class FaceClassifier(nn.Module):
         vid = vid.permute(1, 0, 2)
         vid = self.vid_pos_encoder(vid)
         vid = self.vid_transformer_encoder(vid)
-        #vid = self.dropout(vid)
         vid = self.vid_pred(vid) 
         vid = torch.sigmoid(vid)
         vid = torch.mean(vid, axis=0)
-        #vid = self.dropout(vid)
-        # print("video size:", vid.size())
-        #vid_pred = self.out_vid_pred(vid[-1])
 
         aud = aud.permute(1, 0, 2)
         aud = self.aud_pos_encoder(aud)
         aud = self.aud_transformer_encoder(aud)
         aud = torch.sigmoid(aud)
         aud = torch.mean(aud, axis=0)
-        # print("audio size:", aud.size())
+
         x = torch.cat((vid, aud), 1) # classify based on last output of the encoder
         x = self.out_pred(x)
         return x
