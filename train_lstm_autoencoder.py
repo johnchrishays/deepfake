@@ -6,7 +6,8 @@ import random
 import datetime
 
 from models import LstmAutoencoder
-from datasets import DeepfakeDatasetAudio
+from datasets import DeepfakeDatasetAudio # 441344
+LSTM_SIZE = 64
 
 
 def train_lstm_autoencoder():
@@ -15,30 +16,30 @@ def train_lstm_autoencoder():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     print('Using device:', device)
 
-    model = LstmAutoencoder(device)
+    BATCH_SIZE = 10
+    ITERATIONS = 1000
+    SEQ_LENGTH = 50 # 441344
+    LSTM_SIZE = 16
+
+    model = LstmAutoencoder(device, BATCH_SIZE, SEQ_LENGTH, LSTM_SIZE)
     model = model.to(device)
     model.train()
 
     loss_fn = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(),lr=0.01)
+    optimizer = optim.SGD(model.parameters(),lr=0.1)
     
     epoch_loss = 0
 
     TRAIN_FOLDERS = [
         'train/dfdc_train_part_0',
     ]
-    BATCH_SIZE = 10
-    ITERATIONS = 1000
-    SEQ_LENGTH = 50 # 441344
-    LSTM_SIZE = 64
-    num_epochs = 25
-    epoch_size = 100
+
 
     train_dataset = DeepfakeDatasetAudio(TRAIN_FOLDERS, device=device)
-    print("train_dataset loaded")
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    print("dataloader loaded")
 
+    num_epochs = 25
+    epoch_size = 100
     i = 0
     for epoch in range(num_epochs):
         epoch_start_time = datetime.datetime.now()
