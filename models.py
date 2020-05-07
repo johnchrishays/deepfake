@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import math
 
-# TODO: possibly look into multiple filter sizes
 N_IN_CHANNELS = 3
 
 class Autoencoder(nn.Module):
@@ -102,22 +101,6 @@ class FaceAutoencoder(nn.Module):
 # copied from 
 # https://github.com/pytorch/examples/tree/master/word_language_model
 class PositionalEncoding(nn.Module):
-    r"""Inject some information about the relative or absolute position of the tokens
-        in the sequence. The positional encodings have the same dimension as
-        the embeddings, so that the two can be summed. Here, we use sine and cosine
-        functions of different frequencies.
-    .. math::
-        \text{PosEncoder}(pos, 2i) = sin(pos/10000^(2i/d_model))
-        \text{PosEncoder}(pos, 2i+1) = cos(pos/10000^(2i/d_model))
-        \text{where pos is the word position and i is the embed idx)
-    Args:
-        d_model: the embed dim (required).
-        dropout: the dropout value (default=0.1).
-        max_len: the max. length of the incoming sequence (default=5000).
-    Examples:
-        >>> pos_encoder = PositionalEncoding(d_model)
-    """
-
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -131,22 +114,34 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        r"""Inputs of forward function
-        Args:
-            x: the sequence fed to the positional encoder model (required).
-        Shape:
-            x: [sequence length, batch size, embed dim]
-            output: [sequence length, batch size, embed dim]
-        Examples:
-            >>> output = pos_encoder(x)
-        """
-
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
 
 class Classifier(nn.Module):
-    def __init__(self, n_vid_features, n_aud_features, n_head, n_layers, n_linear_hidden=30, dropout=0.1):
+    def __init__(self, n_vid_features, n_aud_features, n_head, n_layers, dim_feedforward, n_linear_hidden=30, dropout=0.3):
         super(Classifier, self).__init__()
+        vid_encoder_layer = nn.TransformerEncoderLayer(d_model=n_vid_features, nhead=n_head, dim_feedforward=dim_feedforward)
+        self.vid_transformer_encoder = nn.TransformerEncoder(vid_encoder_layer, num_layers=n_layers)
+        self.vid_classifier = nn.Linear(n_vid_features, 1)
+        aud_encoder_layer = nn.TransformerEncoderLayer(d_model=n_aud_features, nhead=1, dim_feedforward=dim_feedforward)
+        self.aud_transformer_encoder = nn.TransformerEncoder(aud_encoder_layer, num_layers=n_layers)
+        self.output = nn.Linear(2, 1)
+
+    def forward(self, vid, aud):
+        vid = self.vid_transformer_encoder(vid)
+        vid = self.vid_classifier(vid)
+        vid = torch.sigmoid(vid)
+        vid = torch.max(vid, axis=0)[0]
+        aud = self.aud_transformer_encoder(aud)
+        aud = torch.sigmoid(aud)
+        aud = torch.max(aud, axis=0)[0]
+        x = torch.cat((vid, aud), axis=1)
+        x = self.output(x)
+        return x
+
+class FaceClassifier(nn.Module):
+    def __init__(self, n_vid_features, n_aud_features, n_head, n_layers, n_linear_hidden=30, dropout=0.1):
+        super(FaceClassifier, self).__init__()
         # video
         self.vid_pos_encoder = PositionalEncoding(d_model=n_vid_features)
         vid_encoder_layer = nn.TransformerEncoderLayer(d_model=n_vid_features, nhead=n_head)
