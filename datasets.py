@@ -13,6 +13,7 @@ import glob
 import datetime
 import subprocess
 from scipy.io import wavfile
+from facenet_pytorch import MTCNN
 
 class CapIter:
     def __init__(self, cap, n_frames=None):
@@ -74,7 +75,7 @@ class DeepfakeDataset(torch.utils.data.Dataset):
         return len(self.videos)
 
 class EncodedDeepfakeDataset(torch.utils.data.Dataset):
-    def __init__(self, folders, encoder, n_frames=None, n_audio_reads=50027, train=True, device=None, cache_folder=None):
+    def __init__(self, folders, encoder, n_frames=None, n_audio_reads=50027, train=True, device=None, cache_folder=None, n_videos=None):
         """ n_audio_reads controls the length of the audio sequence: 5000 readings/sec """
         self.n_frames = n_frames
         self.n_audio_reads = n_audio_reads
@@ -83,6 +84,7 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
         self.device = device
         self.cache_folder = cache_folder
         self.encoder = encoder
+        self.n_videos = n_videos
         for folder in folders:
             if (train):
                 with open(os.path.join(folder, 'metadata.json')) as f:
@@ -181,7 +183,112 @@ class EncodedDeepfakeDataset(torch.utils.data.Dataset):
         else:
             return (encoded, audio_data)
     def __len__(self):
+        if self.n_videos:
+            return min(self.n_videos, len(self.videos))
         return len(self.videos)
+
+class FaceDeepfakeDataset(torch.utils.data.Dataset):
+    def __init__(self, folders, encoder, n_frames=None, n_audio_reads=50027, train=True, device=None, cache_folder=None):
+        """ n_audio_reads controls the length of the audio sequence: 5000 readings/sec """
+        self.n_frames = n_frames
+        self.n_audio_reads = n_audio_reads
+        self.videos = []
+        self.train = train
+        self.device = device if device != None else torch.device("cpu")
+        self.encoder = encoder
+        self.cache_folder = cache_folder
+        self.detector = MTCNN(device=device, post_process=False)
+        for folder in folders:
+            if (train):
+                with open(os.path.join(folder, 'metadata.json')) as f:
+                    videos = json.load(f)
+                    videos = [(os.path.join(folder, video), metadata) for (video, metadata) in videos.items()]
+                    self.videos += videos
+            else:
+                self.videos += glob.glob(folder+"/*.mp4")
+    def __process_frame(self, frame):
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+        face = self.detector(frame)
+        if (type(face) == type(None)):
+            face = torch.zeros((3, 160, 160))
+        face = face / 255
+        return face
+
+    def __getitem__(self, n):
+        if (self.train):
+            (video, metadata) = self.videos[n]
+        else:
+            video = self.videos[n]
+        # img data
+        cache_path = None
+        encoded = None
+        # img data
+        if self.cache_folder:
+            cache_path = os.path.join(self.cache_folder, video) + '.pt'
+            if os.path.isfile(cache_path):
+                encoded = torch.load(cache_path)
+                encoded = encoded.to(self.device)
+                encoded = encoded[:self.n_frames]
+                if (encoded.dim() != 2):
+                    print("\nnvideo size: ", encoded.size(), video)
+                    encoded = None
+                elif (encoded.size(1) != 1296):
+                    print(video, "wrong dimensions", encoded.size())
+                    encoded = None
+        if encoded is None:
+            if os.path.islink(video):
+                video = os.readlink(video)
+            cap = cv2.VideoCapture(video)
+            it = CapIter(cap, self.n_frames)
+            try:
+                encoded = torch.stack(list(map(self.__process_frame, it)))
+                encoded = encoded.to(self.device)
+                encoded = self.encoder(encoded)
+                encoded = encoded.view(self.n_frames, -1)
+            except TypeError as e:
+                print(e)
+                print(video)
+                raise
+            except RuntimeError as e:
+                print(e)
+                print(video)
+                raise
+            cap.release()
+            if cache_path:
+                d = os.path.dirname(cache_path)
+                if not os.path.exists(d):
+                    os.makedirs(d)
+                torch.save(encoded, cache_path)
+        
+        # audio data
+        if os.path.islink(video):
+            video = os.readlink(video)
+        wav_file = video[:-4]+".wav"
+        if not os.path.exists(wav_file): # create wav file if doesn't exist
+            command = f"ffmpeg -i {video} -ar 5000 -vn {wav_file} -y -hide_banner"
+            proc = subprocess.call(command, shell=True)
+        if os.path.exists(wav_file):
+            _, audio_data = wavfile.read(video[:-4]+".wav")
+            audio_data = torch.FloatTensor(audio_data) / 2**14
+        else:
+            audio_data = torch.zeros((self.n_audio_reads))
+        if self.n_audio_reads and self.n_audio_reads <= audio_data.size(0):
+            audio_data = audio_data[:self.n_audio_reads]
+        audio_data = audio_data.unsqueeze(1)
+
+        # return 
+        if (self.train):
+            label = 0.
+            if metadata['label'] == 'FAKE':
+                label = 1.
+            if (audio_data.dim() != 2):
+                print("\naudio size: ", audio_data.size(), wav_file)
+            return (encoded, audio_data, torch.FloatTensor([label]).to(self.device))
+        else:
+            return (encoded, audio_data)
+    def __len__(self):
+        return len(self.videos)
+
 
 class DeepfakeDatasetAudio(torch.utils.data.Dataset):
     def __init__(self, folders, train=True, device=None):
@@ -216,6 +323,18 @@ class DeepfakeDatasetAudio(torch.utils.data.Dataset):
 ################################################################################
 ##      dataset manipulations
 ################################################################################
+def test_face_dataset():
+    TRAIN_FOLDERS = [
+        f'train/dfdc_train_part_{i}' for i in range(1)
+    ]
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dataset = FaceDeepfakeDataset(TRAIN_FOLDERS,n_frames=30, train=True, device=device, cache_folder=None)
+    for i, batch in enumerate(dataset):
+        frames, label = batch
+        print(i)
+        if(frames.size() != torch.Size([30,3,160,160])):
+            print(frames.size())
+
 def real_fake_statistics():
     """ Calculate pct fake videos in the dataset. """
     TRAIN_FOLDERS = [
@@ -371,32 +490,7 @@ def symlink_balanced_dataset(orig_folders, balanced_folder):
     print(f"Num files: {num_real+num_fake}\nPercent real: {num_real/(num_real+num_fake)}")
 
 if __name__ == "__main__":
-    # train_inds = np.random.choice(50, 30, replace=False) 
-    # test_inds = list(set(range(50)).difference(train_inds))
-    # TRAIN_FOLDERS = [
-    #     f'train/dfdc_train_part_{i}' for i in train_inds 
-    # ]
-    # TEST_FOLDERS = [
-    #     f'train/dfdc_train_part_{i}' for i in test_inds 
-    # ]
-    # BALANCED_TRAIN_FOLDER = 'train/balanced'
-    # BALANCED_TEST_FOLDER = 'train/balanced_test'
-    # symlink_balanced_dataset(TRAIN_FOLDERS, BALANCED_TRAIN_FOLDER)
-    # symlink_balanced_dataset(TEST_FOLDERS, BALANCED_TEST_FOLDER)
-    video = "train/dfdc_train_part_26/hycdczdeby.mp4"
-    if os.path.islink(video):
-        video = os.readlink(video)
-    wav_file = video[:-4]+".wav"
-    if not os.path.exists(wav_file): # create wav file if doesn't exist
-        command = f"ffmpeg -i {video} -ar 5000 -vn {wav_file} -y -hide_banner"
-        proc = subprocess.call(command, shell=True)
-    if os.path.exists(wav_file):
-        _, audio_data = wavfile.read(video[:-4]+".wav")
-        audio_data = torch.FloatTensor(audio_data) / 2**14
-        print(audio_data.size())
-    else:
-        audio_data = torch.zeros((50027 if n_audio_reads == None else n_audio_reads))
-        print(audio_data.size())
+    test_face_dataset()
         
 
 

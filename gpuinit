@@ -1,3 +1,3 @@
 #!/bin/sh
 
-srun --pty -p gpu_devel -c 2 -t 2:00:00 --mem-per-cpu 25G --gres=gpu:1 bash --init-file .srun_init 
+srun --pty -p gpu_devel -c 1 -t 2:00:00 --mem-per-cpu 5G --gres=gpu:1 bash --init-file .srun_init 

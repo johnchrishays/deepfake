@@ -7,7 +7,7 @@ import torch.optim as optim
 import random
 import datetime
 
-from models import Autoencoder,Classifier
+from models2 import Autoencoder,Classifier
 from datasets import EncodedDeepfakeDataset
 
 VAL_FOLDERS = [
@@ -15,16 +15,17 @@ VAL_FOLDERS = [
 ]
 
 AUTOENCODER = 'autoencoder_H18M05S37_04-23-20.pt'
-CLASSIFIER = max(glob.glob('./classifier_*.pt'), key=os.path.getctime)
+CLASSIFIER = max(glob.glob('./classifier2_*.pt'), key=os.path.getctime)
 # CLASSIFIER = 'classifier_2020-04-23T21:48:05.265500.pt'
 
 test_size = 1000
-batch_size = 1
+batch_size = 10
 n_frames = 30
 n_vid_features = 3600
 n_aud_features = 1
-n_head = 8
-n_layers = 6
+n_head = 3
+n_layers = 3
+dim_feedforward = 128
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -33,7 +34,7 @@ autoencoder.load_state_dict(torch.load(AUTOENCODER))
 autoencoder.to(device)
 autoencoder.eval()
 
-model = Classifier(n_vid_features, n_aud_features, n_head, n_layers)
+model = Classifier(n_vid_features, n_aud_features, n_head, n_layers, dim_feedforward)
 model.load_state_dict(torch.load(CLASSIFIER))
 model = model.to(device)
 model.eval()
@@ -53,6 +54,8 @@ for i, batch in enumerate(dataloader):
     video_data, audio_data, labels = batch
     video_data = video_data.to(device)
     audio_data = audio_data.to(device)
+    video_data = video_data.permute(1,0,2)
+    audio_data = audio_data.permute(1,0,2)
     with torch.no_grad():
         output = model(video_data, audio_data)
         output = torch.sigmoid(output)
@@ -60,6 +63,7 @@ for i, batch in enumerate(dataloader):
         n_wrong = (labels - output).abs().sum()
         count_wrong += n_wrong
         count += labels.shape[0]
+    print('.', end='', flush=True)
 
 end_time = datetime.datetime.now()
 print(f"end time: {str(end_time)}")

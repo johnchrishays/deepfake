@@ -9,8 +9,8 @@ import glob
 import datetime
 import numpy as np
 
-from models import Autoencoder
-from datasets import DeepfakeDataset
+from models import Autoencoder, FaceAutoencoder
+from datasets import DeepfakeDataset, FaceDeepfakeDataset
 
 def test_autoencoder():
     start_time = datetime.datetime.now()
@@ -21,22 +21,22 @@ def test_autoencoder():
         test_folder = [
             'test/test_videos',
         ]
-        test_dataset = DeepfakeDataset(test_folder, n_frames=1, train=False)
+        test_dataset = FaceDeepfakeDataset(test_folder, n_frames=1, train=False)
 
-        model = Autoencoder()
+        model = FaceAutoencoder()
         model = model.to(device)
         criterion = nn.MSELoss()
 
-        latest_ae = max(glob.glob('./*.pt'), key=os.path.getctime)
+        latest_ae = max(glob.glob('./autoencoder*.pt'), key=os.path.getctime)
         model.load_state_dict(torch.load(latest_ae))
 
-        num_vids = len(glob.glob(test_folder[0]+"/*"))
-        sample_size = 40
-        sample = range(40) # np.random.choice(a=num_vids, size=sample_size, replace=False)
+        num_vids = len(glob.glob(test_folder[0]+"/*.mp4"))
+        sample_size = 400
+        sample = np.random.choice(a=num_vids, size=sample_size, replace=False)
         
         loss = 0
         for ind in sample:
-            data = test_dataset[ind]
+            data, _ = test_dataset[ind]
             data = data.to(device)
             out = model(data)
             loss += criterion(out, data).item()
@@ -49,7 +49,7 @@ def test_autoencoder():
         print('Memory Usage:')
         print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
         print('Cached:   ', round(torch.cuda.memory_cached(0)/1024**3,1), 'GB')
-    return (loss / 40, exec_time, np.prod(list(hidden.size())))
+    return (loss / sample_size, exec_time, np.prod(list(hidden.size())))
         
 if (__name__ == "__main__"):
     print(test_autoencoder())
