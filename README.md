@@ -1,6 +1,6 @@
 # Deepfake Detection Challenge, Kaggle
 
-## Setup 
+## Setup (Yale Center for Research Computing internal)
 
 The first time:
 ```
