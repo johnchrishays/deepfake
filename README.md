@@ -1,5 +1,7 @@
 # Deepfake Detection Challenge, Kaggle
 
+See our [blog post](https://medium.com/@johnchrishays/deepfake-detection-with-transformer-based-architectures-in-pytorch-f057a037bbaf) for detailed discussion + results!
+
 ## Setup (Yale Center for Research Computing internal)
 
 The first time:
